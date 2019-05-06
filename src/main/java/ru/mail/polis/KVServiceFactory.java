@@ -17,7 +17,7 @@
 package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
-
+import ru.mail.polis.dmit.KVDaoServiceImpl;
 import java.io.IOException;
 import java.util.Set;
 
@@ -55,6 +55,6 @@ final class KVServiceFactory {
         }
 
         // TODO: Implement me
-        throw new UnsupportedOperationException("Implement me!");
+        return new KVDaoServiceImpl(port, dao, topology);
     }
 }
