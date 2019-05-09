@@ -18,7 +18,8 @@ dependencies {
     compile("com.intellij:annotations:12.0")
     // HTTP client for unit tests
     testCompile("org.apache.httpcomponents:fluent-hc:4.5.3")
-
+    //SLF4J
+    compile("org.slf4j:slf4j-simple:1.6.1");
     //MapDB
     compile("org.mapdb:mapdb:3.0.5")
 

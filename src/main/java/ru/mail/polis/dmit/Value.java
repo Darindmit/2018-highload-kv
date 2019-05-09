@@ -31,7 +31,7 @@ public class Value implements Serializable{
         return state;
     }
 
-    enum State {
+    public enum State {
         PRESENT,
         REMOVED,
         ABSENT
