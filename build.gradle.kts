@@ -18,6 +18,10 @@ dependencies {
     compile("com.intellij:annotations:12.0")
     // HTTP client for unit tests
     testCompile("org.apache.httpcomponents:fluent-hc:4.5.3")
+    compile("org.slf4j:slf4j-api:1.7.25");
+    //logback
+    compile("ch.qos.logback:logback-classic:1.2.3")
+    compile("ch.qos.logback:logback-core:1.2.3")
     //SLF4J
     compile("org.slf4j:slf4j-simple:1.6.1");
     //MapDB

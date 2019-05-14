@@ -10,8 +10,15 @@ import ru.mail.polis.dmit.KVDaoServiceImpl;
 import ru.mail.polis.dmit.RF;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 
-
+/**
+ * Обработка DELETE запроса
+ */
 public class DeleteHandler extends RequestHandler {
 
     public DeleteHandler(@NotNull String methodName, @NotNull KVDao dao, @NotNull RF rf, String id) {
@@ -25,15 +32,19 @@ public class DeleteHandler extends RequestHandler {
     }
 
     @Override
-    public boolean ifMe() {
-        dao.remove(id.getBytes());
-        return true;
+    public Callable<Boolean> ifMe() {
+        return () -> {
+            dao.remove(id.getBytes());
+            return true;
+        };
     }
 
     @Override
-    public boolean ifNotMe(HttpClient client) throws InterruptedException, PoolException, HttpException, IOException {
-        final Response response = client.delete(KVDaoServiceImpl.ENTITY_PATH + "?id=" + id, KVDaoServiceImpl.PROXY_HEADER);
-        return response.getStatus() == 202;
+    public Callable<Boolean> ifNotMe(HttpClient client) {
+        return () -> {
+            final Response response = client.delete(KVDaoServiceImpl.ENTITY_PATH + "?id=" + id, KVDaoServiceImpl.PROXY_HEADER);
+            return response.getStatus() == 202;
+        };
     }
 
     @Override
@@ -46,10 +57,15 @@ public class DeleteHandler extends RequestHandler {
         return gatewayTimeout(acks);
     }
 
-
+    /**
+     * @param futures список будущих ack
+     * @return <ol>
+     * <li> 202 Accepted, если хотя бы ack из from реплик подтвердили операцию </li>
+     * <li> 504 Not Enough Replicas, если не набралось ack подтверждений из всего множества from реплик </li>
+     * </ol>
+     */
     @Override
-    public Response getResponse(int acks) {
-        return super.getResponse(acks);
+    public Response getResponse(ArrayList<Future<Boolean>> futures) {
+        return super.getResponse(futures);
     }
 }
-

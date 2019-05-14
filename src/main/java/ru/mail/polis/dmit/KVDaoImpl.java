@@ -1,10 +1,7 @@
 package ru.mail.polis.dmit;
 
 import org.jetbrains.annotations.NotNull;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
-import org.mapdb.HTreeMap;
-import org.mapdb.Serializer;
+import org.mapdb.*;
 import ru.mail.polis.KVDao;
 
 import java.io.File;
@@ -25,6 +22,8 @@ public class KVDaoImpl implements KVDao {
                 .fileMmapEnableIfSupported()
                 .fileMmapPreclearDisable()
                 .fileChannelEnable()
+                .allocateStartSize(1024 * 1024 * 1024L)  // 1GB
+                .allocateIncrement(128 * 1024 * 1024)    // 128MB
                 .closeOnJvmShutdown()
                 .make();
         this.storage = db.hashMap(data.getName())

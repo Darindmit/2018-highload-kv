@@ -34,12 +34,15 @@ abstract class TestBase {
     private static final int VALUE_LENGTH = 1024;
 
     static int randomPort() {
-        try (ServerSocket socket = new ServerSocket()) {
+        return ThreadLocalRandom.current().nextInt(30000, 40000);
+    }
+
+    static int getFreePort() throws IOException {
+        try (ServerSocket socket = new ServerSocket(0)) {
             socket.setReuseAddress(true);
-            socket.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), 0), 1);
             return socket.getLocalPort();
         } catch (IOException e) {
-            throw new RuntimeException("Can't discover a free port", e);
+            throw new IOException(e);
         }
     }
 

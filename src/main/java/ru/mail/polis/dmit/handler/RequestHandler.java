@@ -12,11 +12,13 @@ import ru.mail.polis.dmit.KVDaoImpl;
 import ru.mail.polis.dmit.RF;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.NoSuchElementException;
+import java.util.concurrent.*;
 
 
 public abstract class RequestHandler {
-    final String methodName;
+    private final String methodName;
     @NotNull
     final KVDaoImpl dao;
     @NotNull
@@ -42,27 +44,45 @@ public abstract class RequestHandler {
     public abstract Response onProxied() throws NoSuchElementException;
 
 
-    public abstract boolean ifMe() throws IOException;
+    public abstract Callable<Boolean> ifMe() throws IOException;
 
 
-    public abstract boolean ifNotMe(HttpClient client) throws InterruptedException, PoolException, HttpException, IOException, NoSuchElementException;
+    public abstract Callable<Boolean> ifNotMe(HttpClient client);
+
+
     abstract Response onSuccess(int acks);
+
+
     abstract Response onFail(int acks);
 
 
-    public Response getResponse(int acks){
-        if(acks >= rf.getAck()){
-            return onSuccess(acks);
-        } else {
-            return onFail(acks);
+    public Response getResponse(ArrayList<Future<Boolean>> futures) {
+        int acks = 0;
+
+        for (Future<Boolean> future : futures) {
+            try {
+                if (future.get()) {
+                    acks++;
+                    if (acks >= rf.getAck()) {
+                        return onSuccess(acks);
+                    }
+                }
+            } catch (ExecutionException | InterruptedException e) {
+                log.error(e.getMessage(), e);
+            }
         }
+
+        return onFail(acks);
     }
 
-    Response gatewayTimeout(int acks){
+
+    Response gatewayTimeout(int acks) {
         log.info("Операция " + methodName + " не выполнена, acks = " + acks + " ; требования - " + rf);
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
-    Response success(String responseName, int acks, byte[] body){
+
+
+    Response success(String responseName, int acks, byte[] body) {
         log.info("Операция " + methodName + " выполнена успешно в " + acks + " нодах; требования - " + rf);
         return new Response(responseName, body);
     }

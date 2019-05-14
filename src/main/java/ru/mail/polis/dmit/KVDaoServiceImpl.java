@@ -2,7 +2,6 @@ package ru.mail.polis.dmit;
 
 import one.nio.http.*;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -16,6 +15,7 @@ import ru.mail.polis.dmit.handler.RequestHandler;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 
@@ -31,6 +31,9 @@ public class KVDaoServiceImpl extends HttpServer implements KVService {
     private final Map<String, HttpClient> clients;
 
     private static final Logger log = LoggerFactory.getLogger(KVDaoServiceImpl.class);
+
+    private final int THREAD_COUNT = 9;
+    private final ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
 
     public final static String PROXY_HEADER = "proxied";
     private final String STATUS_PATH = "/v0/status";
@@ -86,7 +89,7 @@ public class KVDaoServiceImpl extends HttpServer implements KVService {
                         HttpSession session,
                         @Param("id=") String id,
                         @Param("replicas=") String replicas) throws IOException {
-        log.info("Запрос от " + request.getHost() + "; URI = " + request.getURI());
+        log.info("Параметры запроса:\n" + request);
 
         if (id == null || id.isEmpty()) {
             log.error("id = " + id + " не удовлетворяет требованиям");
@@ -137,16 +140,16 @@ public class KVDaoServiceImpl extends HttpServer implements KVService {
             log.info("Элемент по ключу " + id + " не найден", e);
             session.sendError(Response.NOT_FOUND, null);
         } catch (IOException e) {
-            log.info("Внутренняя ошибка сервера", e);
+            log.error("Внутренняя ошибка сервера", e);
+            log.error("Параметры запроса:\n" + request);
             session.sendError(Response.INTERNAL_ERROR, null);
         }
-
     }
 
 
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
-        log.error("Неподдерживаемый запрос от " + request.getHost() + "; URI = " + request.getURI());
+        log.error("Неподдерживаемый запрос\n" + request);
         session.sendError(Response.BAD_REQUEST, null);
     }
 
@@ -155,23 +158,16 @@ public class KVDaoServiceImpl extends HttpServer implements KVService {
             return rh.onProxied();
         }
 
-        int acks = 0;
+        ArrayList<Future<Boolean>> futures = new ArrayList<>();
         for (final String node : nodes) {
             if (node.equals(me)) {
-                if (rh.ifMe()) {
-                    acks++;
-                }
+                futures.add(executor.submit(rh.ifMe()));
             } else {
-                try {
-                    if (rh.ifNotMe(clients.get(node))) {
-                        acks++;
-                    }
-                } catch (InterruptedException | PoolException | HttpException e) {
-                    log.error(e.getMessage(), e);
-                }
+                futures.add(executor.submit(rh.ifNotMe(clients.get(node))));
             }
         }
-        return rh.getResponse(acks);
+
+        return rh.getResponse(futures);
     }
 
 
@@ -204,6 +200,7 @@ public class KVDaoServiceImpl extends HttpServer implements KVService {
     @Override
     public synchronized void stop() {
         super.stop();
+        executor.shutdown();
         log.info("Сервер на порту " + port + " был остановлен");
     }
 }
